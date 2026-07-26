@@ -6,9 +6,13 @@ use std::path::PathBuf;
 /// The struct which contains the arguments.
 #[derive(Parser)]
 pub struct Args {
-    /// Whether the output file will assign to driver.
+    /// Whether the output file will assign to driver. Default: false.
     #[arg(short = 'd', long = "driver", required = false)]
     pub is_driver: bool,
+
+    /// Whether the unloadable is being stripped. Default: false.
+    #[arg(short = 's', long = "strip", required = false)]
+    pub strip_unloadable: bool,
 
     /// Specify the output dir. Default: `out.pke`.
     #[arg(short = 'o', long = "output")]

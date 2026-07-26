@@ -5,10 +5,9 @@ use elf::abi::{SHF_ALLOC, SHF_EXECINSTR};
 use elf::section::SectionHeader;
 use elf::{ElfBytes, endian::AnyEndian};
 use elf2pke::{Args, Sections};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use proka_exec::Builder;
 use proka_exec::header::ExecMode;
-use std::collections::HashMap;
 use std::fs;
 use std::io::Error;
 use std::path::PathBuf;
@@ -84,7 +83,7 @@ fn handler() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Parse the shdrs and collect them into a map keyed on their zero-copied name
-    let with_names: HashMap<&str, SectionHeader> = shdrs
+    let with_names: Vec<(&str, SectionHeader)> = shdrs
         .iter()
         .map(|shdr| {
             (
@@ -100,10 +99,16 @@ fn handler() -> Result<(), Box<dyn std::error::Error>> {
     for (idx, (name, shdr)) in with_names.iter().enumerate() {
         let is_loadable = (shdr.sh_flags & SHF_ALLOC as u64) != 0;
         let is_executable = (shdr.sh_flags & SHF_EXECINSTR as u64) != 0;
-
         debug!(
             "Found a section indexed {idx} called {name}, is loadable: {is_loadable}, is executable: {is_executable}"
         );
+
+        // According to the args, should we pass the unloadable sections?
+        if arg.strip_unloadable && !is_loadable {
+            debug!("This section is being stripped.");
+            continue;
+        }
+
         let section = Sections {
             section_name: name,
             is_loadable: (shdr.sh_flags & SHF_ALLOC as u64) != 0,
@@ -125,6 +130,8 @@ fn handler() -> Result<(), Box<dyn std::error::Error>> {
     let name = arg.appname.clone().unwrap_or("appname".to_string());
     builder.set_author(&author);
     builder.set_name(&name);
+    builder.set_min([0, 1, 0]);
+    builder.set_max([0, 1, 1]);
 
     // Decide the flags of the PKE file
     if arg.is_driver {
@@ -142,10 +149,17 @@ fn handler() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|(_, item)| item.vaddr <= entry && entry < item.vaddr + item.size)
         .map(|(idx, item)| (idx, entry - item.vaddr))
         .collect::<Vec<_>>();
+
     // Check: Is executable sections exist
     if executable_sections.is_empty() {
         return Err("No executable section that contains entry point found".into());
     }
+
+    // Check: Is length of executable sections is 1
+    if executable_sections.len() != 1 {
+        warn!("More than one executable section found, only the first one will be used");
+    }
+
     let (seg, off) = executable_sections[0];
     debug!(
         "Found executable section indexed {seg} at offset {off}"

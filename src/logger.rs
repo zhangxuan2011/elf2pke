@@ -1,7 +1,5 @@
 //! Self-specified logger.
-
 use std::io::Write;
-
 use colored::Colorize;
 use log::{Level, Log};
 
