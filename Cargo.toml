@@ -8,4 +8,4 @@ clap = { version = "4.6.4", features = ["derive"] }
 colored = "3.1.1"
 elf = "0.8.0"
 log = "0.4.33"
-proka-exec = "0.4.3"
+proka-exec = "0.6.1"
